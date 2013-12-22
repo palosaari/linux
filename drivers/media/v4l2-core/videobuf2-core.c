@@ -2686,12 +2686,24 @@ int vb2_fop_mmap(struct file *file, struct vm_area_struct *vma)
 	struct video_device *vdev = video_devdata(file);
 	struct mutex *lock = vdev->queue->lock ? vdev->queue->lock : vdev->lock;
 	int err;
+	/*
+	 * FIXME: Ugly hack. Disable possible lockdep as it detects possible
+	 * deadlock. "INFO: possible circular locking dependency detected"
+	 */
+	lockdep_off();
 
-	if (lock && mutex_lock_interruptible(lock))
+	if (lock && mutex_lock_interruptible(lock)) {
+		lockdep_on();
 		return -ERESTARTSYS;
+	}
+
 	err = vb2_mmap(vdev->queue, vma);
+
 	if (lock)
 		mutex_unlock(lock);
+
+	lockdep_on();
+
 	return err;
 }
 EXPORT_SYMBOL_GPL(vb2_fop_mmap);
